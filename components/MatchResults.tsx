@@ -1,0 +1,208 @@
+// app/components/MatchResults.tsx
+"use client";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import DateFilter, { DayItem } from "./DateFilter";
+
+type Fixture = any;
+
+const leagues = [
+  "Tất cả các giải đấu",
+  "Giải Ngoại hạng Anh",
+  "LaLiga",
+  "Bundesliga",
+  "Ligue 1",
+  "Serie A",
+  "Vô địch các CLB châu Âu",
+  "V-League",
+];
+
+function formatLocalYYYYMMDD(d: Date) {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+export default function MatchResults() {
+  // Build 7 days: today, yesterday, and previous 5 days
+  const days: DayItem[] = useMemo(() => {
+    const today = new Date();
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setDate(today.getDate() - i);
+      const date = formatLocalYYYYMMDD(d);
+      let label = "";
+      if (i === 0) label = "Hôm nay";
+      else if (i === 1) label = "Hôm qua";
+      else label = d.toLocaleDateString("vi-VN", { weekday: "short", day: "2-digit", month: "2-digit" });
+      return { label, date };
+    });
+  }, []);
+
+  const [selectedDate, setSelectedDate] = useState<string>(days[0].date);
+  const [selectedLeague, setSelectedLeague] = useState<string>("Tất cả các giải đấu");
+
+  const [fixtures, setFixtures] = useState<Fixture[]>([]);
+  const [page, setPage] = useState<number>(1);
+  const [limit] = useState<number>(20);
+  const [hasMore, setHasMore] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [debug, setDebug] = useState<any>(null);
+
+  // reset when filters change
+  useEffect(() => {
+    setFixtures([]);
+    setPage(1);
+    setHasMore(false);
+    setError(null);
+    setDebug(null);
+  }, [selectedDate, selectedLeague]);
+
+  async function loadPage(p: number) {
+    setLoading(true);
+    setError(null);
+    try {
+      const qs = new URLSearchParams();
+      qs.set("page", String(p));
+      qs.set("limit", String(limit));
+      // Always send date param (server handles league+date or date-only)
+      qs.set("date", selectedDate);
+      if (selectedLeague && selectedLeague !== "Tất cả các giải đấu") {
+        qs.set("league", selectedLeague);
+      }
+
+      const res = await fetch(`/api/fixtures?${qs.toString()}`);
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        setError(json?.error ?? `HTTP ${res.status}`);
+        setDebug(json);
+      } else {
+        // append new fixtures, avoiding duplicates
+        setFixtures((prev) => {
+          const ids = new Set(prev.map((x) => x.fixture?.id));
+          const incoming: Fixture[] = json.fixtures ?? [];
+          const toAdd = incoming.filter((f) => !ids.has(f.fixture?.id));
+          return [...prev, ...toAdd];
+        });
+        setHasMore(Boolean(json.hasMore));
+        setDebug(json.debug ?? null);
+        setPage(p);
+      }
+    } catch (err: any) {
+      setError(String(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // initial load on filter change
+  useEffect(() => {
+    loadPage(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate, selectedLeague]);
+
+  // intersection observer for infinite scroll
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loading) {
+          loadPage(page + 1);
+        }
+      },
+      { rootMargin: "200px" }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sentinelRef.current, hasMore, loading, page]);
+
+  function scoreText(f: Fixture) {
+    const gh = f?.goals?.home;
+    const ga = f?.goals?.away;
+    if (typeof gh === "number" && typeof ga === "number") return `${gh} - ${ga}`;
+    const ft = f?.score?.fulltime;
+    if (ft && (ft.home !== undefined || ft.away !== undefined)) return `${ft.home ?? "-"} - ${ft.away ?? "-"}`;
+    return "-";
+  }
+
+  return (
+    <div className="bg-white shadow-sm rounded-2xl p-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <DateFilter days={days} selectedDate={selectedDate} onSelect={(d) => setSelectedDate(d)} />
+        <div className="w-full md:w-auto">
+          <select
+            value={selectedLeague}
+            onChange={(e) => setSelectedLeague(e.target.value)}
+            className="border border-gray-300 rounded-lg px-4 py-2 text-sm w-full md:w-64 focus:ring-2 focus:ring-green-500 focus:outline-none"
+          >
+            {leagues.map((l) => (
+              <option key={l} value={l}>
+                {l}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <h2 className="font-semibold text-lg mb-4">
+        {selectedLeague === "Tất cả các giải đấu"
+          ? `Kết quả ${days.find((d) => d.date === selectedDate)?.label ?? selectedDate}`
+          : `Kết quả — ${selectedLeague}`}{" "}
+        ({fixtures.length})
+      </h2>
+
+      {error && <div className="text-red-500 p-3 rounded border mb-4">{error}</div>}
+
+      <div className="space-y-4">
+        {fixtures.map((f: any, idx) => (
+          <div key={f.fixture?.id ?? idx} className="border border-gray-200 rounded-xl p-4 hover:shadow-md bg-gray-50">
+            <div className="flex justify-between items-start mb-2">
+              <div className="text-sm font-medium text-gray-500">{f?.league?.name ?? ""}</div>
+              <span className="text-xs text-gray-400">{f?.fixture?.status?.short ?? ""}</span>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <div className="text-left">
+                <div className="font-medium">{f?.teams?.home?.name ?? "?"}</div>
+                <div className="text-sm text-gray-600">{f?.teams?.away?.name ?? "?"}</div>
+              </div>
+              <div className="text-lg font-semibold text-gray-800">{scoreText(f)}</div>
+            </div>
+
+            <div className="mt-2 text-xs text-gray-500">
+              {f?.league?.round ? `Vòng: ${f.league.round}` : ""}
+              {f?.fixture?.date ? ` • ${new Date(f.fixture.date).toLocaleString()}` : ""}
+            </div>
+          </div>
+        ))}
+
+        {loading && <div className="text-center text-gray-500 py-6">Đang tải...</div>}
+
+        {!loading && fixtures.length === 0 && !error && (
+          <div className="text-center text-gray-500 py-10 border rounded-xl">Không có trận đấu</div>
+        )}
+
+        <div ref={sentinelRef} />
+
+        {!loading && hasMore && (
+          <div className="text-center mt-4">
+            <button onClick={() => loadPage(page + 1)} className="px-4 py-2 rounded-lg bg-green-600 text-white">
+              Xem thêm
+            </button>
+          </div>
+        )}
+      </div>
+
+      {debug && (
+        <details className="mt-4 text-xs text-gray-600">
+          <summary className="cursor-pointer">Debug</summary>
+          <pre className="whitespace-pre-wrap">{JSON.stringify(debug, null, 2)}</pre>
+        </details>
+      )}
+    </div>
+  );
+}

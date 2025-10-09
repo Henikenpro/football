@@ -1,38 +1,41 @@
-import React from "react";
-import { footballFetch } from "../../lib/api";
+// app/odds/page.tsx
+import React from 'react';
+import footballFetch from '../../lib/footballClient';
 
 export default async function OddsPage() {
-  let odds: any[] = [];
-  try {
-    // Example: lấy odds cho ngày hôm nay (API-Football odds endpoint may be different or require params)
-    const today = new Date().toISOString().slice(0, 10);
-    const res = await footballFetch("/odds", { date: today });
-    odds = res.response || [];
-  } catch (err) {
-    console.error("Failed to fetch odds", err);
+  // Need fixture id to query odds. Here we show odds for upcoming fixtures in next 3 days, pick first fixture id example.
+  const from = new Date();
+  const to = new Date();
+  to.setDate(to.getDate() + 3);
+
+  const data = await footballFetch('/fixtures', { from: from.toISOString().split('T')[0], to: to.toISOString().split('T')[0] });
+  const fixtures: any[] = data.response || [];
+  const fixture = fixtures[0];
+
+  let oddsData: any = { response: [] };
+  if (fixture) {
+    try {
+      oddsData = await footballFetch('/odds', { fixture: fixture.fixture.id });
+    } catch (err) {
+      console.error('Odds error', err);
+    }
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-4">Football Odds</h1>
-      {odds.length === 0 ? (
-        <div className="p-6 bg-white rounded shadow">No odds available.</div>
-      ) : (
-        <div className="grid gap-4">
-          {odds.map((o: any) => (
-            <div key={o.fixture.id} className="p-4 bg-white rounded shadow">
-              <div className="flex justify-between">
-                <div>
-                  <div className="text-sm text-slate-500">{o.league?.name}</div>
-                  <div className="font-semibold">
-                    {o.teams.home.name} vs {o.teams.away.name}
-                  </div>
-                </div>
-                <div className="text-sm">
-                  {o.bookmakers?.[0]?.bets?.[0]?.values?.slice(0,3).map((v: any) => (
-                    <div key={v.value} className="text-right">{v.value}: {v.odd}</div>
-                  ))}
-                </div>
+    <div className="p-6">
+      <h1 className="text-2xl font-semibold mb-4">Football Odds</h1>
+      {!fixture && <div>Không có trận sắp tới để hiển thị odds</div>}
+      {fixture && (
+        <div className="bg-white p-4 rounded shadow">
+          <div className="font-medium mb-2">{fixture.teams.home.name} vs {fixture.teams.away.name}</div>
+          {oddsData.response.length === 0 && <div>Không có nhà cái/odds</div>}
+          {oddsData.response.map((o: any) => (
+            <div key={o.bookmaker?.id} className="border-t py-2">
+              <div className="text-sm font-semibold">{o.bookmaker?.name}</div>
+              <div className="flex gap-4 text-sm">
+                {o.bookmaker?.bets?.[0]?.values?.map((v: any) => (
+                  <div key={v.value} className="px-2">{v.value}: {v.odds}</div>
+                ))}
               </div>
             </div>
           ))}

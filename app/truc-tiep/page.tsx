@@ -1,28 +1,31 @@
-import React from "react";
-import { footballFetch } from "../../lib/api";
-import MatchCard from "../../components/MatchCard";
+// app/livescore/page.tsx
+import React from 'react';
+import footballFetch from '../../lib/footballClient';
+import LiveScoreClient from './LiveScoreClient';
+import { formatDateTime } from '../../lib/i18n';
+
+export const metadata = {
+  title: 'Trực tiếp - Livescore',
+};
 
 export default async function LiveScorePage() {
-  let liveMatches: any[] = [];
+  let initialData: any = { response: [] };
   try {
-    const res = await footballFetch("/fixtures", { live: "all" });
-    liveMatches = res.response || [];
+    initialData = await footballFetch('/fixtures', { live: 'all' });
   } catch (err) {
-    console.error("Failed to fetch live matches", err);
+    console.error('Initial livescore fetch failed', err);
   }
 
+  // tạo chuỗi thời gian đã format bằng tiếng Việt (để tránh hydration mismatch)
+  const initialUpdated = formatDateTime(new Date(), { timeOnly: true, shortTime: true });
+
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-4">Livescore</h1>
-      {liveMatches.length === 0 ? (
-        <div className="p-6 bg-white rounded shadow">No live matches right now.</div>
-      ) : (
-        <div className="grid md:grid-cols-2 gap-4">
-          {liveMatches.map((m: any) => (
-            <MatchCard key={m.fixture.id} match={m} />
-          ))}
-        </div>
-      )}
+    <div className="p-6">
+      <div className="max-w-5xl mx-auto">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-4">Trực tiếp</h1>
+        <p className="text-sm text-gray-500 mb-4">Cập nhật trực tiếp từ API-Football</p>
+        <LiveScoreClient initialData={initialData} initialUpdated={initialUpdated} />
+      </div>
     </div>
   );
 }

@@ -1,45 +1,56 @@
 // components/FixtureCard.tsx
-import Link from 'next/link';
+'use client';
 import React from 'react';
-import { FixtureUI } from '@/types/ui';
-import { formatDateISO } from '@/utils/formatters/date';
+import { translateStatus, translateBadgeText, formatDateTime } from '../lib/i18n';
 
-type Props = {
-  fixture: FixtureUI;
-};
+export default function FixtureCard({ fixture }: { fixture: any }) {
+  const { teams, goals } = fixture;
+  const status = fixture.fixture.status;
+  const dateIso = fixture.fixture.date;
+  const formattedDate = formatDateTime(dateIso, { shortTime: true, fullDate: false });
 
-export default function FixtureCard({ fixture }: Props) {
-  const isFinished = fixture.status.short === 'FT' || fixture.status.short === 'HT' || fixture.status.short === 'AET';
-  const scoreAvailable = fixture.score?.fulltime?.home !== null && fixture.score?.fulltime?.away !== null;
+  const statusLabel = translateStatus(status?.long, status?.short);
+  const badge = translateBadgeText(status?.short, status?.long);
+
+  const elapsed = status?.elapsed ?? null;
+  const liveShort = (status?.short || '').toLowerCase();
+  const live = liveShort === 'live' || liveShort === '1h' || liveShort === '2h' || liveShort === 'ht';
 
   return (
-    <Link href={`/tran/${fixture.id}`} className="block bg-white dark:bg-slate-800 shadow-sm rounded-lg p-3 hover:shadow-md transition">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="text-xs text-slate-500">{fixture.league.name}</div>
-        </div>
-        <div className="text-xs text-slate-400">{formatDateISO(fixture.date, 'HH:mm dd/MM')}</div>
-      </div>
+    <div className="flex items-center justify-between gap-4 px-4 py-3">
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            {teams.home?.logo && <img src={teams.home.logo} alt={teams.home.name} className="w-8 h-8 object-contain" />}
+            <div className="text-sm font-medium truncate">{teams.home?.name}</div>
+          </div>
 
-      <div className="mt-3 grid grid-cols-3 items-center">
-        <div className="text-center">
-          <div className="text-sm font-medium">{fixture.home.name}</div>
-        </div>
-
-        <div className="text-center">
-          {scoreAvailable ? (
-            <div className="text-lg font-bold">
-              {fixture.score.fulltime.home} - {fixture.score.fulltime.away}
+          <div className="flex flex-col items-center mx-4">
+            <div className="text-lg font-semibold">
+              {goals.home ?? '-'} <span className="text-gray-400">:</span> {goals.away ?? '-'}
             </div>
-          ) : (
-            <div className="text-sm text-slate-500">{fixture.status.short === 'NS' ? 'Sắp diễn ra' : fixture.status.short}</div>
-          )}
-        </div>
+            <div className="text-xs text-gray-500">
+              {live ? `${elapsed ?? ''}' • ${statusLabel}` : formattedDate}
+            </div>
+          </div>
 
-        <div className="text-center">
-          <div className="text-sm font-medium">{fixture.away.name}</div>
+          <div className="flex items-center gap-3 min-w-0">
+            {teams.away?.logo && <img src={teams.away.logo} alt={teams.away.name} className="w-8 h-8 object-contain" />}
+            <div className="text-sm font-medium truncate">{teams.away?.name}</div>
+          </div>
         </div>
       </div>
-    </Link>
+
+      <div className="min-w-[120px] text-right">
+        <div
+          className={`inline-block px-2 py-1 text-xs rounded ${
+            live ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'
+          }`}
+        >
+          {badge}
+        </div>
+        <div className="text-xs text-gray-400 mt-1">{fixture.league?.name}</div>
+      </div>
+    </div>
   );
 }

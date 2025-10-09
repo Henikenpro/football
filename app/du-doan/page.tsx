@@ -1,34 +1,39 @@
-import React from "react";
-import { footballFetch } from "../../lib/api";
-import MatchCard from "../../components/MatchCard";
+// app/prediction/page.tsx
+import React from 'react';
+import footballFetch from '../../lib/footballClient';
 
 export default async function PredictionPage() {
-  // Đây là ví dụ: lấy matches và hiển thị placeholder "prediction"
-  let matches: any[] = [];
-  try {
-    const today = new Date().toISOString().slice(0, 10);
-    const res = await footballFetch("/fixtures", { date: today });
-    matches = res.response || [];
-  } catch (err) {
-    console.error("Failed to fetch for predictions", err);
+  // example: get upcoming fixture then fetch predictions
+  const data = await footballFetch('/fixtures', { next: 1 });
+  const fixtures: any[] = data.response || [];
+  const fixture = fixtures[0];
+
+  let predData: any = { response: [] };
+  if (fixture) {
+    try {
+      predData = await footballFetch('/predictions', { fixture: fixture.fixture.id });
+    } catch (err) {
+      console.error('Predictions error', err);
+    }
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-4">Predictions</h1>
-      <div className="grid md:grid-cols-2 gap-4">
-        {matches.slice(0, 10).map((m: any) => (
-          <div key={m.fixture.id} className="p-4 bg-white rounded shadow">
-            <MatchCard match={m} />
-            <div className="mt-3">
-              <div className="text-sm text-slate-600">Prediction (simple heuristic):</div>
-              <div className="font-semibold mt-1">
-                {Math.random() < 0.5 ? m.teams.home.name + " win" : m.teams.away.name + " win"}
-              </div>
+    <div className="p-6">
+      <h1 className="text-2xl font-semibold mb-4">Prediction</h1>
+      {!fixture && <div>Không có trận để dự đoán</div>}
+      {fixture && (
+        <div className="bg-white p-4 rounded shadow">
+          <div className="mb-2 font-medium">{fixture.teams.home.name} vs {fixture.teams.away.name}</div>
+          {predData.response.length === 0 && <div>Không có dữ liệu dự đoán</div>}
+          {predData.response.map((p: any, i: number) => (
+            <div key={i} className="border-t py-2">
+              <div><strong>Advice:</strong> {p.predictions?.advice}</div>
+              <div><strong>Win Probability:</strong> {p.predictions?.percent || 'N/A'}</div>
+              <div><strong>Comparison:</strong> {JSON.stringify(p.comparison || {})}</div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

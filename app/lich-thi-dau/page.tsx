@@ -1,71 +1,42 @@
+// app/schedule/page.tsx
 import React from 'react';
-import { getFixtures } from '@/lib/apiFootball.server';
-import { mapFixture } from '@/utils/convertApiFootball';
-import FixtureCard from '@/components/FixtureCard';
-import DatePicker from '@/components/DatePicker';
-import LeagueSelector from '@/components/LeagueSelector';
-import LoadingSkeleton from '@/components/LoadingSkeleton';
+import footballFetch from '../../lib/footballClient';
 
-type Props = { searchParams?: { date?: string; league?: string } };
+export default async function SchedulePage() {
+  // Example: schedule for next 7 days
+  const from = new Date();
+  const to = new Date();
+  to.setDate(to.getDate() + 7);
 
-export const revalidate = 30;
+  const fromStr = from.toISOString().split('T')[0];
+  const toStr = to.toISOString().split('T')[0];
 
-export default async function FixturesPage({ searchParams }: Props) {
-  const today = new Date().toISOString().slice(0, 10);
-  const date = searchParams?.date ?? today;
-  const league = searchParams?.league ? Number(searchParams.league) : undefined;
-
-  let fixtures = [];
+  let data = { response: [] };
   try {
-    const res: any = await getFixtures({ date, league });
-    fixtures = (res.response || []).map((r: any) => mapFixture(r));
-  } catch (e) {
-    console.error('Fixtures fetch error', e);
-    fixtures = [];
+    data = await footballFetch('/fixtures', { from: fromStr, to: toStr });
+  } catch (err) {
+    console.error('Schedule fetch error', err);
   }
 
+  const fixtures: any[] = data.response || [];
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Lịch thi đấu</h1>
-          <p className="text-sm text-slate-500">Chọn ngày và giải để xem lịch</p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {/* DatePicker and LeagueSelector are client components that update URL query */}
-          {/* They rely on next/navigation router to push query params */}
-          {/* Provide initial defaults via searchParams */}
-          {/* DatePicker */}
-          {/* We wrap in a client-only block by direct import (both components are "use client") */}
-          <DatePicker value={date} onChange={(d) => {
-            // client navigation handled inside DatePicker? we need to navigate, but DatePicker is generic
-            // We'll use a small script tag to navigate via URL since this is server component
-            // Instead: render DatePicker client will handle using next/navigation via window.location
-            if (typeof window !== 'undefined') {
-              const sp = new URLSearchParams(location.search);
-              sp.set('date', d);
-              location.search = sp.toString();
-            }
-          }} />
-          <LeagueSelector value={league} includeAll />
-        </div>
+    <div className="p-6">
+      <h1 className="text-2xl font-semibold mb-4">Match Schedule</h1>
+      <div className="space-y-3">
+        {fixtures.map(f => (
+          <div key={f.fixture.id} className="p-3 border rounded bg-white">
+            <div className="flex justify-between">
+              <div>
+                <div className="font-medium">{f.teams.home.name} vs {f.teams.away.name}</div>
+                <div className="text-sm text-gray-500">{new Date(f.fixture.date).toLocaleString()}</div>
+              </div>
+              <div className="text-sm text-gray-600">{f.league?.name}</div>
+            </div>
+          </div>
+        ))}
+        {fixtures.length === 0 && <div>Không có lịch trong khoảng này</div>}
       </div>
-
-      <section>
-        {fixtures.length === 0 ? (
-          <div>
-            <div className="text-sm text-slate-500 mb-3">Không tìm thấy trận cho ngày này.</div>
-            <LoadingSkeleton type="list" count={3} />
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {fixtures.map((f: any) => (
-              <FixtureCard key={f.id} fixture={f} />
-            ))}
-          </div>
-        )}
-      </section>
     </div>
   );
 }
