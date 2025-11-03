@@ -1,37 +1,33 @@
-// app/components/LeagueSelect.tsx
-"use client";
-import React from "react";
-
-interface LeagueSelectProps {
-  value: string;
-  onChange: (val: string) => void;
-}
+'use client';
+import React from 'react';
 
 const leagues = [
-  "Tất cả các giải đấu",
-  "Giải Ngoại hạng Anh",
-  "LaLiga",
-  "Bundesliga",
-  "Ligue 1",
-  "Serie A",
-  "Vô địch các CLB châu Âu",
-  "V-League",
+  { id: 'all', name: 'Tất cả các giải đấu' },
+  { id: 39, name: 'Ngoại hạng Anh' },
+  { id: 140, name: 'La Liga' },
+  { id: 78, name: 'Bundesliga' },
 ];
 
-export default function LeagueSelect({ value, onChange }: LeagueSelectProps) {
+export default function LeagueSelector({
+  value,
+  onChange,
+}: {
+  value: number | string | 'all';
+  onChange: (v: number | 'all') => void;
+}) {
   return (
-    <div className="w-full md:w-auto">
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="border border-gray-300 rounded-lg px-4 py-2 text-sm w-full md:w-64 focus:ring-2 focus:ring-green-500 focus:outline-none"
-      >
-        {leagues.map((l) => (
-          <option key={l} value={l}>
-            {l}
-          </option>
-        ))}
-      </select>
-    </div>
+    <select
+      value={String(value)}
+      onChange={(e) =>
+        onChange(e.target.value === 'all' ? 'all' : Number(e.target.value))
+      }
+      className="border border-gray-300 rounded-lg p-2 text-sm"
+    >
+      {leagues.map((l) => (
+        <option key={String(l.id)} value={String(l.id)}>
+          {l.name}
+        </option>
+      ))}
+    </select>
   );
 }

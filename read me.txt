@@ -1,0 +1,17 @@
+Cache client-side / memoization: cache kết quả API theo league+season để tránh gọi lại khi người dùng đổi chọn và quay lại (localStorage hoặc in-memory cache).
+Pagination / lazy load fixtures: load theo vòng hoặc phân trang để giảm payload cho mùa có nhiều trận.
+Tùy chọn timezone: cho phép bật/tắt timezone forwarding từ UI (nhưng nhớ proxy không thêm timezone cho endpoints không hỗ trợ).
+Loading skeletons: dùng skeleton UI cho bảng & danh sách trận để trải nghiệm mượt hơn.
+Chế độ "So sánh 2 mùa": hiển thị chênh lệch điểm/hiệu số giữa hai mùa.
+Auto-refresh Livescore: WebSocket hoặc polling cho Livescore để cập nhật thời gian thực.
+Lưu lựa chọn người dùng (mùa, vòng) trong URL và localStorage để giữ trạng thái.
+Localization: để toàn bộ UI (bao gồm ngày/giờ) theo ngôn ngữ người dùng; hiện bạn đã chuyển nhãn vòng sang tiếng Việt.
+Xử lý lỗi & retry: nếu API trả lỗi (do timezone/proxy), hiển thị nút "Thử lại" và log chi tiết (tùy chọn gửi về server).
+Unit tests cho parseStandingsFromJson và translateRoundToVN để đảm bảo parse/translation ổn định.
+Nếu muốn, tôi có thể:
+
+Thêm caching đơn giản cho standings/fixtures.
+Thêm skeleton loader.
+Tích hợp nút "Thử lại" khi có seasonError. Bạn muốn tôi bổ sung cái nào trước?
+
+// Giải đấu

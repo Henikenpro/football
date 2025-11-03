@@ -2,19 +2,10 @@
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import DateFilter, { DayItem } from "./DateFilter";
+import PRIORITY_LEAGUES from "@/lib/leagues";
+ 
 
 type Fixture = any;
-
-const leagues = [
-  "Tất cả các giải đấu",
-  "Giải Ngoại hạng Anh",
-  "LaLiga",
-  "Bundesliga",
-  "Ligue 1",
-  "Serie A",
-  "Vô địch các CLB châu Âu",
-  "V-League",
-];
 
 function formatLocalYYYYMMDD(d: Date) {
   const year = d.getFullYear();
@@ -40,7 +31,16 @@ export default function MatchResults() {
   }, []);
 
   const [selectedDate, setSelectedDate] = useState<string>(days[0].date);
-  const [selectedLeague, setSelectedLeague] = useState<string>("Tất cả các giải đấu");
+
+  // Build league options from PRIORITY_LEAGUES to ensure only desired leagues are prioritized
+  const leagueOptions = useMemo(() => {
+    return [
+      { id: 0, name: "Tất cả các giải đấu", slug: "" },
+      ...PRIORITY_LEAGUES.map((l) => ({ id: l.id, name: l.name, slug: l.slug ?? "" })),
+    ];
+  }, []);
+
+  const [selectedLeagueId, setSelectedLeagueId] = useState<number>(0); // 0 = all
 
   const [fixtures, setFixtures] = useState<Fixture[]>([]);
   const [page, setPage] = useState<number>(1);
@@ -57,7 +57,10 @@ export default function MatchResults() {
     setHasMore(false);
     setError(null);
     setDebug(null);
-  }, [selectedDate, selectedLeague]);
+  }, [selectedDate, selectedLeagueId]);
+
+  // helper: set of allowed league ids (priority)
+  const allowedLeagueIds = useMemo(() => new Set(PRIORITY_LEAGUES.map((l) => l.id)), []);
 
   async function loadPage(p: number) {
     setLoading(true);
@@ -66,10 +69,11 @@ export default function MatchResults() {
       const qs = new URLSearchParams();
       qs.set("page", String(p));
       qs.set("limit", String(limit));
-      // Always send date param (server handles league+date or date-only)
       qs.set("date", selectedDate);
-      if (selectedLeague && selectedLeague !== "Tất cả các giải đấu") {
-        qs.set("league", selectedLeague);
+
+      // Send league id only if specific priority league selected (not "Tất cả")
+      if (selectedLeagueId && selectedLeagueId !== 0) {
+        qs.set("league", String(selectedLeagueId));
       }
 
       const res = await fetch(`/api/fixtures?${qs.toString()}`);
@@ -78,11 +82,27 @@ export default function MatchResults() {
         setError(json?.error ?? `HTTP ${res.status}`);
         setDebug(json);
       } else {
+        // incoming fixtures
+        const incoming: Fixture[] = json.fixtures ?? [];
+
+        // Filter incoming fixtures to include only those whose league is in PRIORITY_LEAGUES.
+        // If user explicitly selected a priority league (selectedLeagueId != 0) the API already filtered,
+        // but we maintain extra client-side filter to be safe.
+        const filteredIncoming = incoming.filter((f) => {
+          const lid = f?.league?.id;
+          if (!lid && selectedLeagueId === 0) return false; // discard fixtures without league id when showing "all"
+          // If user selected a specific league, ensure it matches
+          if (selectedLeagueId && selectedLeagueId !== 0) {
+            return lid === selectedLeagueId;
+          }
+          // For "all" view, only keep fixtures that belong to allowed priority leagues
+          return allowedLeagueIds.has(lid);
+        });
+
         // append new fixtures, avoiding duplicates
         setFixtures((prev) => {
           const ids = new Set(prev.map((x) => x.fixture?.id));
-          const incoming: Fixture[] = json.fixtures ?? [];
-          const toAdd = incoming.filter((f) => !ids.has(f.fixture?.id));
+          const toAdd = filteredIncoming.filter((f) => !ids.has(f.fixture?.id));
           return [...prev, ...toAdd];
         });
         setHasMore(Boolean(json.hasMore));
@@ -100,7 +120,7 @@ export default function MatchResults() {
   useEffect(() => {
     loadPage(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDate, selectedLeague]);
+  }, [selectedDate, selectedLeagueId]);
 
   // intersection observer for infinite scroll
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -135,13 +155,13 @@ export default function MatchResults() {
         <DateFilter days={days} selectedDate={selectedDate} onSelect={(d) => setSelectedDate(d)} />
         <div className="w-full md:w-auto">
           <select
-            value={selectedLeague}
-            onChange={(e) => setSelectedLeague(e.target.value)}
+            value={selectedLeagueId}
+            onChange={(e) => setSelectedLeagueId(Number(e.target.value))}
             className="border border-gray-300 rounded-lg px-4 py-2 text-sm w-full md:w-64 focus:ring-2 focus:ring-green-500 focus:outline-none"
           >
-            {leagues.map((l) => (
-              <option key={l} value={l}>
-                {l}
+            {leagueOptions.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name}
               </option>
             ))}
           </select>
@@ -149,9 +169,9 @@ export default function MatchResults() {
       </div>
 
       <h2 className="font-semibold text-lg mb-4">
-        {selectedLeague === "Tất cả các giải đấu"
+        {selectedLeagueId === 0
           ? `Kết quả ${days.find((d) => d.date === selectedDate)?.label ?? selectedDate}`
-          : `Kết quả — ${selectedLeague}`}{" "}
+          : `Kết quả — ${leagueOptions.find((l) => l.id === selectedLeagueId)?.name ?? "Giải đấu"}`}{" "}
         ({fixtures.length})
       </h2>
 

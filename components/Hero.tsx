@@ -1,11 +1,7 @@
 export default function Hero() {
   return (
     <section
-      className="relative bg-cover bg-center h-[300px] flex flex-col items-center justify-center text-white"
-      style={{
-        backgroundImage:
-          "url('https://images.unsplash.com/photo-1508804185872-d7badad00f7d?auto=format&fit=crop&w=1950&q=80')",
-      }}
+      className="relative bg-[url('/hero.jpg')] bg-cover bg-center h-[300px] flex flex-col items-center justify-center text-white"
     >
       <div className="absolute inset-0 bg-black/50" />
       <div className="relative z-10 text-center">

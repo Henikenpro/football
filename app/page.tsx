@@ -9,7 +9,7 @@ import FeaturedMatches from '@/components/FeaturedMatches';
 import FeaturesGrid from '@/components/FeaturesGrid';
 
 export default async function HomePage() {
-
+//refresh trang call api 2 lần
   return (
     <main>
     <Hero />

@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+.font-teko {
+  font-family: 'Teko', sans-serif;
+}
 :root {
   --background: #ffffff;
   --foreground: #171717;
